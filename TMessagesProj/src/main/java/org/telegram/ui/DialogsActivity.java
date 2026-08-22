@@ -512,7 +512,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private HintView2 storyPremiumHint;
     private boolean canShowStoryHint;
     private boolean storyHintShown;
-    private static final String AI_WEB_URL = "https://duck.ai/";
+    private static final String AI_WEB_URL = "";
     private FragmentFloatingButton floatingButton3;
     private FragmentFloatingButton floatingButtonStories;
     private FragmentFloatingButton floatingButtonAi;
