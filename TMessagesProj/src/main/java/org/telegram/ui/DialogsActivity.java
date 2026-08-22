@@ -140,14 +140,6 @@ import org.telegram.tgnet.tl.TL_account;
 import org.telegram.tgnet.tl.TL_chatlists;
 import org.telegram.tgnet.tl.TL_stars;
 import org.telegram.tgnet.tl.TL_stories;
-import com.yandex.mobile.ads.common.AdError;
-import com.yandex.mobile.ads.common.AdRequest;
-import com.yandex.mobile.ads.common.AdRequestError;
-import com.yandex.mobile.ads.common.ImpressionData;
-import com.yandex.mobile.ads.interstitial.InterstitialAd;
-import com.yandex.mobile.ads.interstitial.InterstitialAdEventListener;
-import com.yandex.mobile.ads.interstitial.InterstitialAdLoadListener;
-import com.yandex.mobile.ads.interstitial.InterstitialAdLoader;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.ActionBarMenu;
 import org.telegram.ui.ActionBar.ActionBarMenuItem;
@@ -293,23 +285,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private final int ADDITIONAL_LIST_HEIGHT_DP = Build.VERSION.SDK_INT >= 31 ? 48 : 0;
 
     private static final boolean TMP_DISABLE_TOPICS_TWO_COLUMNS = false;
-
-    // ===== YANDEX APP OPEN INTERSTITIAL AD =====
-    private static final String YANDEX_APP_OPEN_INTERSTITIAL_AD_UNIT_ID = "R-M-19643161-8";
-    private static final String YANDEX_APP_OPEN_INTERSTITIAL_LAST_SHOWN_DAY_KEY = "yandex_app_open_interstitial_last_shown_day";
-    private InterstitialAdLoader yandexAppOpenInterstitialAdLoader;
-    private InterstitialAd yandexAppOpenInterstitialAd;
-    private boolean yandexAppOpenInterstitialRequested;
-    private boolean yandexAppOpenInterstitialShown;
-    private boolean yandexAppOpenInterstitialCanShowNow;
-    private final Runnable yandexAppOpenInterstitialRunnable = () -> {
-        if (!yandexAppOpenInterstitialCanShowNow || getParentActivity() == null) {
-            return;
-        }
-        loadYandexAppOpenInterstitial();
-        showYandexAppOpenInterstitialIfReady();
-    };
-    // ===== END YANDEX APP OPEN INTERSTITIAL AD =====
 
     public static final int MAIN_TABS_HEIGHT = 56;
     public static final int MAIN_TABS_MARGIN = 8;
@@ -7075,69 +7050,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
     }
 
-    // ===== YANDEX APP OPEN INTERSTITIAL AD =====
-    private boolean canShowYandexAppOpenInterstitial() {
-        if (!yandexAppOpenInterstitialCanShowNow || onlySelect || folderId != 0 || communityId != 0) {
-            return false;
-        }
-        int lastShownDay = MessagesController.getGlobalMainSettings().getInt(YANDEX_APP_OPEN_INTERSTITIAL_LAST_SHOWN_DAY_KEY, -1);
-        return lastShownDay != getYandexAppOpenInterstitialCurrentDay();
-    }
-
-    private int getYandexAppOpenInterstitialCurrentDay() {
-        java.util.Calendar calendar = java.util.Calendar.getInstance();
-        return calendar.get(java.util.Calendar.YEAR) * 1000 + calendar.get(java.util.Calendar.DAY_OF_YEAR);
-    }
-
-    private void loadYandexAppOpenInterstitial() {
-        if (!canShowYandexAppOpenInterstitial() || getContext() == null || yandexAppOpenInterstitialRequested || yandexAppOpenInterstitialShown) {
-            return;
-        }
-        yandexAppOpenInterstitialRequested = true;
-        yandexAppOpenInterstitialAdLoader = new InterstitialAdLoader(getContext());
-        yandexAppOpenInterstitialAdLoader.loadAd(new AdRequest.Builder(YANDEX_APP_OPEN_INTERSTITIAL_AD_UNIT_ID).build(), new InterstitialAdLoadListener() {
-            @Override
-            public void onAdLoaded(InterstitialAd interstitialAd) {
-                yandexAppOpenInterstitialAd = interstitialAd;
-                yandexAppOpenInterstitialAd.setAdEventListener(new InterstitialAdEventListener() {
-                    @Override public void onAdShown() {
-                        MessagesController.getGlobalMainSettings().edit()
-                                .putInt(YANDEX_APP_OPEN_INTERSTITIAL_LAST_SHOWN_DAY_KEY, getYandexAppOpenInterstitialCurrentDay())
-                                .apply();
-                    }
-                    @Override public void onAdFailedToShow(AdError adError) { destroyYandexAppOpenInterstitial(); }
-                    @Override public void onAdDismissed() { destroyYandexAppOpenInterstitial(); }
-                    @Override public void onAdClicked() { }
-                    @Override public void onAdImpression(ImpressionData impressionData) { }
-                });
-                showYandexAppOpenInterstitialIfReady();
-            }
-
-            @Override
-            public void onAdFailedToLoad(AdRequestError adRequestError) {
-                destroyYandexAppOpenInterstitial();
-            }
-        });
-    }
-
-    private void showYandexAppOpenInterstitialIfReady() {
-        if (yandexAppOpenInterstitialShown || yandexAppOpenInterstitialAd == null || getParentActivity() == null) {
-            return;
-        }
-        yandexAppOpenInterstitialShown = true;
-        yandexAppOpenInterstitialAd.show(getParentActivity());
-    }
-
-    private void destroyYandexAppOpenInterstitial() {
-        if (yandexAppOpenInterstitialAd != null) {
-            yandexAppOpenInterstitialAd.setAdEventListener(null);
-            yandexAppOpenInterstitialAd = null;
-        }
-        yandexAppOpenInterstitialAdLoader = null;
-        yandexAppOpenInterstitialRequested = false;
-    }
-    // ===== END YANDEX APP OPEN INTERSTITIAL AD =====
-
     @Override
     public void finishFragment() {
         super.finishFragment();
@@ -7149,9 +7061,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onResume() {
         super.onResume();
-        yandexAppOpenInterstitialCanShowNow = true;
-        AndroidUtilities.cancelRunOnUIThread(yandexAppOpenInterstitialRunnable);
-        AndroidUtilities.runOnUIThread(yandexAppOpenInterstitialRunnable, 1500);
         if (dialogStoriesCell != null) {
             dialogStoriesCell.onResume();
         }
@@ -7370,8 +7279,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     @Override
     public void onPause() {
         super.onPause();
-        yandexAppOpenInterstitialCanShowNow = false;
-        AndroidUtilities.cancelRunOnUIThread(yandexAppOpenInterstitialRunnable);
         if (storiesBulletin != null) {
             storiesBulletin.hide();
             storiesBulletin = null;
