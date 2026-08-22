@@ -1,6 +1,6 @@
 # Telegraf
 
-Workgram is a fast and lightweight messaging client built on open-source technologies.
+Telegraf is a fast and lightweight messaging client built on open-source technologies.
 
 ## Features
 
@@ -10,7 +10,7 @@ Workgram is a fast and lightweight messaging client built on open-source technol
 
 ## About
 
-Workgram is an independent project focused on improving user experience.
+Telegraf is an independent project focused on improving user experience.
 
 ## Disclaimer
 
