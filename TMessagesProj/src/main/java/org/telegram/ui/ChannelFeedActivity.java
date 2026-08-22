@@ -7,32 +7,19 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.text.style.CharacterStyle;
-import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Gravity;
 import android.widget.CheckBox;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.collection.LongSparseArray;
-import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
-import com.yandex.mobile.ads.common.ImpressionData;
-
-import com.yandex.mobile.ads.common.AdRequestError;
-import com.yandex.mobile.ads.common.AdRequest;
-import com.yandex.mobile.ads.common.AdError;
-import com.yandex.mobile.ads.interstitial.InterstitialAd;
-import com.yandex.mobile.ads.interstitial.InterstitialAdEventListener;
-import com.yandex.mobile.ads.interstitial.InterstitialAdLoadListener;
-import com.yandex.mobile.ads.interstitial.InterstitialAdLoader;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
@@ -61,17 +48,12 @@ import java.util.HashSet;
 
 public class ChannelFeedActivity extends BaseFragment implements MainTabsActivity.TabFragmentDelegate, NotificationCenter.NotificationCenterDelegate {
 
-    private static final int POSTS_PER_CHANNEL = 5;
-    private static final String YANDEX_FEED_INTERSTITIAL_AD_UNIT_ID = "R-M-19643161-4";
+    private static final int POSTS_PER_CHANNEL = 1;
 
     private boolean hasMainTabs;
     private RecyclerListView listView;
     private FeedAdapter adapter;
     private int lastLoadIndex;
-    private InterstitialAdLoader yandexFeedInterstitialAdLoader;
-    private InterstitialAd yandexFeedInterstitialAd;
-    private int yandexFeedInterstitialShowsLeft = 1;
-    private boolean yandexFeedInterstitialRequested;
     private final ArrayList<MessageObject> feedMessages = new ArrayList<>();
     private final ArrayList<Object> feedRows = new ArrayList<>();
     private final HashSet<String> addedMessages = new HashSet<>();
@@ -131,28 +113,13 @@ public class ChannelFeedActivity extends BaseFragment implements MainTabsActivit
         loadFilterState(ApplicationLoader.applicationContext);
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.messagesDidLoad);
         loadFeed();
-        loadYandexFeedInterstitial();
         return true;
     }
 
     @Override
     public void onFragmentDestroy() {
-        destroyYandexFeedInterstitial();
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagesDidLoad);
         super.onFragmentDestroy();
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-    }
-
-    @Override
-    public void onBecomeFullyVisible() {
-        super.onBecomeFullyVisible();
-        yandexFeedInterstitialShowsLeft = 1;
-        loadYandexFeedInterstitial();
-        showYandexFeedInterstitialIfReady();
     }
 
     @Override
@@ -223,8 +190,6 @@ public class ChannelFeedActivity extends BaseFragment implements MainTabsActivit
                 LayoutHelper.MATCH_PARENT,
                 LayoutHelper.MATCH_PARENT
         ));
-
-        AndroidUtilities.runOnUIThread(() -> showYandexFeedInterstitialIfReady(), 500);
 
 
         return fragmentView;
@@ -423,7 +388,6 @@ public class ChannelFeedActivity extends BaseFragment implements MainTabsActivit
     private void rebuildRows() {
         feedRows.clear();
         int lastDay = Integer.MIN_VALUE;
-
         for (int i = 0; i < feedMessages.size(); i++) {
             MessageObject message = feedMessages.get(i);
             if (message == null || message.messageOwner == null) {
@@ -502,9 +466,6 @@ public class ChannelFeedActivity extends BaseFragment implements MainTabsActivit
             if (message.messageOwner instanceof TLRPC.TL_messageService) {
                 continue;
             }
-            if (getFeedMessagesCountForDialog(dialogId) >= POSTS_PER_CHANNEL) {
-                continue;
-            }
             String key = message.getDialogId() + "_" + message.getId();
             if (addedMessages.contains(key)) {
                 continue;
@@ -517,17 +478,6 @@ public class ChannelFeedActivity extends BaseFragment implements MainTabsActivit
         if (adapter != null) {
             adapter.notifyDataSetChanged();
         }
-    }
-
-    private int getFeedMessagesCountForDialog(long dialogId) {
-        int count = 0;
-        for (int i = 0; i < feedMessages.size(); i++) {
-            MessageObject message = feedMessages.get(i);
-            if (message != null && message.getDialogId() == dialogId) {
-                count++;
-            }
-        }
-        return count;
     }
 
     @Override
@@ -717,56 +667,6 @@ public class ChannelFeedActivity extends BaseFragment implements MainTabsActivit
         public int getItemCount() {
             return feedRows.size();
         }
-    }
-
-
-    private void loadYandexFeedInterstitial() {
-        if (getContext() == null || yandexFeedInterstitialRequested || yandexFeedInterstitialShowsLeft <= 0) {
-            return;
-        }
-        yandexFeedInterstitialRequested = true;
-        yandexFeedInterstitialAdLoader = new InterstitialAdLoader(getContext());
-        yandexFeedInterstitialAdLoader.loadAd(new AdRequest.Builder(YANDEX_FEED_INTERSTITIAL_AD_UNIT_ID).build(), new InterstitialAdLoadListener() {
-            @Override
-            public void onAdLoaded(InterstitialAd interstitialAd) {
-                yandexFeedInterstitialAd = interstitialAd;
-                yandexFeedInterstitialAd.setAdEventListener(new InterstitialAdEventListener() {
-                    @Override public void onAdShown() { }
-                    @Override public void onAdFailedToShow(AdError adError) { destroyYandexFeedInterstitial(); }
-                    @Override public void onAdDismissed() {
-                        destroyYandexFeedInterstitial();
-                        yandexFeedInterstitialShowsLeft--;
-                        if (yandexFeedInterstitialShowsLeft > 0) {
-                            loadYandexFeedInterstitial();
-                        }
-                    }
-                    @Override public void onAdClicked() { }
-                    @Override public void onAdImpression(ImpressionData impressionData) { }
-                });
-                showYandexFeedInterstitialIfReady();
-            }
-
-            @Override
-            public void onAdFailedToLoad(AdRequestError adRequestError) {
-                destroyYandexFeedInterstitial();
-            }
-        });
-    }
-
-    private void showYandexFeedInterstitialIfReady() {
-        if (yandexFeedInterstitialAd == null || getParentActivity() == null || yandexFeedInterstitialShowsLeft <= 0) {
-            return;
-        }
-        yandexFeedInterstitialAd.show(getParentActivity());
-    }
-
-    private void destroyYandexFeedInterstitial() {
-        if (yandexFeedInterstitialAd != null) {
-            yandexFeedInterstitialAd.setAdEventListener(null);
-            yandexFeedInterstitialAd = null;
-        }
-        yandexFeedInterstitialAdLoader = null;
-        yandexFeedInterstitialRequested = false;
     }
 
     private class FeedDateView extends FrameLayout {
